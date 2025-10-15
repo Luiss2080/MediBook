@@ -1,0 +1,67 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Logs
+/storage/logs/*.log
+*.log
+
+# Cache
+/storage/cache/*
+!/storage/cache/.gitkeep
+
+# Sessions
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+
+# Uploads
+/public/assets/uploads/*
+!/public/assets/uploads/.gitkeep
+/public/assets/uploads/doctors/*
+!/public/assets/uploads/doctors/.gitkeep
+
+# Composer
+composer.phar
+composer.lock
+
+# NPM
+package-lock.json
+npm-debug.log
+yarn-error.log
+
+# Build files
+/dist/
+/build/
+
+# Test coverage
+/coverage/
+.phpunit.result.cache
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
