@@ -122,7 +122,7 @@
     
     // Si ya está autenticado, redirigir
     if (isset($_SESSION['user_id'])) {
-        switch ($_SESSION['user_role']) {
+        switch ($_SESSION['role']) {
             case ROLE_ADMIN:
                 header('Location: /MediBook/src/Views/admin/dashboard.php');
                 exit;

@@ -11,8 +11,8 @@ session_start();
 require_once __DIR__ . '/config/constants.php';
 
 // Si el usuario ya está autenticado, redirigir según su rol
-if (isset($_SESSION['user_id']) && isset($_SESSION['user_role'])) {
-    switch ($_SESSION['user_role']) {
+if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
+    switch ($_SESSION['role']) {
         case ROLE_ADMIN:
             header('Location: /MediBook/src/Views/admin/dashboard.php');
             exit;
