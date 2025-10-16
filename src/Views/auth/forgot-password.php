@@ -137,19 +137,56 @@
 <body>
     <?php
     session_start();
-    require_once __DIR__ . '/../../../config/constants.php';
-    require_once __DIR__ . '/../../Controllers/AuthController.php';
     
-    use MediBook\Controllers\AuthController;
-    
-    $authController = new AuthController();
     $message = '';
     $messageType = '';
     
+    // Procesar formulario de recuperación de contraseña
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $result = $authController->forgotPassword();
-        $message = $result['message'];
-        $messageType = $result['type'];
+        $email = $_POST['email'] ?? '';
+        
+        if (empty($email)) {
+            $message = 'Por favor ingresa tu correo electrónico';
+            $messageType = 'error';
+        } else {
+            try {
+                // Conectar a la base de datos
+                $pdo = new PDO("mysql:host=localhost;dbname=medibook;charset=utf8mb4", "root", "", [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]);
+                
+                // Verificar si el usuario existe
+                $stmt = $pdo->prepare("SELECT id, email, first_name FROM users WHERE email = ? AND status = 'active'");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch();
+                
+                if ($user) {
+                    // Generar token de recuperación
+                    $token = bin2hex(random_bytes(32));
+                    $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                    
+                    // Guardar token en la base de datos
+                    $stmt = $pdo->prepare("INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token), expires_at = VALUES(expires_at)");
+                    $stmt->execute([$user['id'], $token, $expires_at]);
+                    
+                    // Simular envío de email (en producción aquí iría el envío real)
+                    $resetLink = "http://localhost/MediBook/src/Views/auth/reset-password.php?token=" . $token;
+                    
+                    $message = 'Se ha enviado un enlace de recuperación a tu correo electrónico. El enlace expirará en 1 hora.';
+                    $messageType = 'success';
+                    
+                    // En desarrollo, mostrar el enlace directamente
+                    $message .= '<br><br><strong>Enlace de recuperación (solo para desarrollo):</strong><br><a href="' . $resetLink . '" target="_blank">' . $resetLink . '</a>';
+                } else {
+                    $message = 'No se encontró una cuenta asociada a ese correo electrónico';
+                    $messageType = 'error';
+                }
+            } catch (Exception $e) {
+                $message = 'Error del sistema. Por favor intenta más tarde.';
+                $messageType = 'error';
+            }
+        }
     }
     ?>
     
@@ -165,7 +202,7 @@
                 <?php if ($message): ?>
                     <div class="alert alert-<?= $messageType === 'success' ? 'success' : 'danger' ?>">
                         <i class="fas fa-<?= $messageType === 'success' ? 'check-circle' : 'exclamation-circle' ?> me-2"></i>
-                        <?= htmlspecialchars($message) ?>
+                        <?= $message ?>
                     </div>
                 <?php endif; ?>
                 

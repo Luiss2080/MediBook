@@ -163,32 +163,80 @@
 <body>
     <?php
     session_start();
-    require_once __DIR__ . '/../../../config/constants.php';
-    require_once __DIR__ . '/../../Controllers/AuthController.php';
     
-    use MediBook\Controllers\AuthController;
-    
-    $authController = new AuthController();
+    $token = $_GET['token'] ?? '';
     $message = '';
     $messageType = '';
-    $token = $_GET['token'] ?? '';
+    $validToken = false;
+    $user = null;
     
     // Verificar token
-    if (empty($token)) {
-        $message = 'Token de recuperación no válido o faltante.';
-        $messageType = 'danger';
-    } else {
-        $isValidToken = $authController->validateResetToken($token);
-        if (!$isValidToken) {
-            $message = 'Token de recuperación expirado o no válido.';
+    if ($token) {
+        try {
+            $pdo = new PDO("mysql:host=localhost;dbname=medibook;charset=utf8mb4", "root", "", [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+            
+            // Verificar si el token existe y no ha expirado
+            $stmt = $pdo->prepare("
+                SELECT prt.*, u.email, u.first_name 
+                FROM password_reset_tokens prt 
+                JOIN users u ON prt.user_id = u.id 
+                WHERE prt.token = ? AND prt.expires_at > NOW()
+            ");
+            $stmt->execute([$token]);
+            $resetData = $stmt->fetch();
+            
+            if ($resetData) {
+                $validToken = true;
+                $user = $resetData;
+            } else {
+                $message = 'El enlace de recuperación no es válido o ha expirado';
+                $messageType = 'danger';
+            }
+        } catch (Exception $e) {
+            $message = 'Error del sistema. Por favor intenta más tarde.';
             $messageType = 'danger';
         }
+    } else {
+        $message = 'Enlace de recuperación no válido';
+        $messageType = 'danger';
     }
     
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($message)) {
-        $result = $authController->resetPassword();
-        $message = $result['message'];
-        $messageType = $result['type'];
+    // Procesar formulario de cambio de contraseña
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validToken) {
+        $password = $_POST['password'] ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
+        
+        if (empty($password) || empty($confirmPassword)) {
+            $message = 'Por favor completa todos los campos';
+            $messageType = 'danger';
+        } elseif (strlen($password) < 8) {
+            $message = 'La contraseña debe tener al menos 8 caracteres';
+            $messageType = 'danger';
+        } elseif ($password !== $confirmPassword) {
+            $message = 'Las contraseñas no coinciden';
+            $messageType = 'danger';
+        } else {
+            try {
+                // Actualizar contraseña
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$hashedPassword, $user['user_id']]);
+                
+                // Eliminar token usado
+                $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE token = ?");
+                $stmt->execute([$token]);
+                
+                $message = 'Tu contraseña ha sido actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña.';
+                $messageType = 'success';
+                $validToken = false; // Para ocultar el formulario
+            } catch (Exception $e) {
+                $message = 'Error al actualizar la contraseña. Por favor intenta más tarde.';
+                $messageType = 'danger';
+            }
+        }
     }
     ?>
     
@@ -208,30 +256,25 @@
                     </div>
                 <?php endif; ?>
                 
-                <?php if (empty($message) || $messageType !== 'danger'): ?>
+                <?php if ($validToken && $user): ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-user me-2"></i>
+                        Restableciendo contraseña para: <strong><?= htmlspecialchars($user['email']) ?></strong>
+                    </div>
+                    
                     <div class="password-requirements">
                         <h6><i class="fas fa-shield-alt me-2"></i>Requisitos de Contraseña</h6>
                         <div class="requirement">
-                            <i class="fas fa-check text-muted"></i>
-                            Al menos 8 caracteres
+                            <i class="fas fa-check text-success"></i>
+                            Mínimo 8 caracteres
                         </div>
                         <div class="requirement">
-                            <i class="fas fa-check text-muted"></i>
-                            Una letra mayúscula
-                        </div>
-                        <div class="requirement">
-                            <i class="fas fa-check text-muted"></i>
-                            Una letra minúscula
-                        </div>
-                        <div class="requirement">
-                            <i class="fas fa-check text-muted"></i>
-                            Un número
+                            <i class="fas fa-info-circle text-info"></i>
+                            Se recomienda incluir letras, números y símbolos
                         </div>
                     </div>
                     
                     <form method="POST" action="" id="resetForm">
-                        <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
-                        
                         <div class="form-group">
                             <label for="password" class="form-label">
                                 <i class="fas fa-lock me-2"></i>
@@ -246,26 +289,21 @@
                                 required
                                 minlength="8"
                             >
-                            <div class="password-strength">
-                                <div class="strength-bar">
-                                    <div class="strength-fill" id="strengthFill"></div>
-                                </div>
-                                <small class="text-muted mt-1" id="strengthText">Ingresa una contraseña</small>
-                            </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="password_confirm" class="form-label">
+                            <label for="confirm_password" class="form-label">
                                 <i class="fas fa-lock me-2"></i>
                                 Confirmar Contraseña
                             </label>
                             <input 
                                 type="password" 
                                 class="form-control" 
-                                id="password_confirm" 
-                                name="password_confirm" 
+                                id="confirm_password" 
+                                name="confirm_password" 
                                 placeholder="Confirma tu nueva contraseña"
                                 required
+                                minlength="8"
                             >
                         </div>
                         
@@ -273,80 +311,47 @@
                             <i class="fas fa-save me-2"></i>
                             Guardar Nueva Contraseña
                         </button>
-                        
-                        <a href="/MediBook/" class="btn-back">
-                            <i class="fas fa-arrow-left me-2"></i>
-                            Volver al Inicio
-                        </a>
                     </form>
-                <?php else: ?>
+                <?php elseif ($messageType === 'success'): ?>
                     <div class="text-center">
-                        <a href="/MediBook/src/Views/auth/forgot-password.php" class="btn btn-reset">
-                            <i class="fas fa-redo me-2"></i>
-                            Solicitar Nuevo Token
-                        </a>
-                        
-                        <a href="/MediBook/" class="btn-back">
-                            <i class="fas fa-arrow-left me-2"></i>
-                            Volver al Inicio
+                        <a href="/MediBook/src/Views/auth/login.php" class="btn btn-reset">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Ir a Iniciar Sesión
                         </a>
                     </div>
                 <?php endif; ?>
+                
+                <a href="/MediBook/" class="btn-back">
+                    <i class="fas fa-home me-2"></i>
+                    Volver al Inicio
+                </a>
             </div>
         </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Validación de fortaleza de contraseña
-        document.getElementById('password')?.addEventListener('input', function() {
-            const password = this.value;
-            const strengthFill = document.getElementById('strengthFill');
-            const strengthText = document.getElementById('strengthText');
+        // Validar que las contraseñas coincidan en tiempo real
+        document.getElementById('confirm_password')?.addEventListener('input', function() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = this.value;
             
-            let strength = 0;
-            let text = '';
-            
-            if (password.length >= 8) strength++;
-            if (/[a-z]/.test(password)) strength++;
-            if (/[A-Z]/.test(password)) strength++;
-            if (/\d/.test(password)) strength++;
-            
-            strengthFill.className = 'strength-fill';
-            
-            switch (strength) {
-                case 1:
-                    strengthFill.classList.add('strength-weak');
-                    text = 'Muy débil';
-                    break;
-                case 2:
-                    strengthFill.classList.add('strength-medium');
-                    text = 'Débil';
-                    break;
-                case 3:
-                    strengthFill.classList.add('strength-good');
-                    text = 'Buena';
-                    break;
-                case 4:
-                    strengthFill.classList.add('strength-strong');
-                    text = 'Fuerte';
-                    break;
-                default:
-                    text = 'Ingresa una contraseña';
+            if (password !== confirmPassword) {
+                this.setCustomValidity('Las contraseñas no coinciden');
+            } else {
+                this.setCustomValidity('');
             }
-            
-            strengthText.textContent = text;
         });
         
-        // Validación de confirmación de contraseña
+        // Validación adicional en envío del formulario
         document.getElementById('resetForm')?.addEventListener('submit', function(e) {
             const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('password_confirm').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
             
             if (password !== confirmPassword) {
                 e.preventDefault();
                 alert('Las contraseñas no coinciden. Por favor, verifica e intenta nuevamente.');
-                document.getElementById('password_confirm').focus();
+                document.getElementById('confirm_password').focus();
             }
         });
     </script>
