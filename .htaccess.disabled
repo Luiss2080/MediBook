@@ -1,0 +1,69 @@
+DirectoryIndex index.php index.htmlOptions +Indexes
+DirectoryIndex index.php index.html
+AllowOverride All
+Require all granted
+
+# Habilitar RewriteEngine
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Comentar redirección al directorio public temporalmente
+    # RewriteCond %{REQUEST_URI} !^/public/
+    # RewriteRule ^(.*)$ /public/$1 [L]
+    
+    # Redirigir todo al index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# Prevenir acceso directo a archivos PHP en carpetas específicas
+<FilesMatch "\.(php)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "index\.php$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Seguridad: Ocultar versión de PHP
+<IfModule mod_headers.c>
+    Header unset X-Powered-By
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Configuración de límites de upload
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
+php_value max_execution_time 300
+php_value max_input_time 300
+
+# Deshabilitar listado de directorios
+Options -Indexes
+
+# Proteger archivos sensibles
+<FilesMatch "^(\.env|\.git|composer\.(json|lock)|package\.(json|lock))">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Configuración de cache para assets estáticos
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+</IfModule>
+
+# Compresión GZIP
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>

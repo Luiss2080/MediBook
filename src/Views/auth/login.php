@@ -113,31 +113,66 @@
 <body>
     <?php
     session_start();
-    require_once __DIR__ . '/../../../config/constants.php';
-    require_once __DIR__ . '/../../Controllers/AuthController.php';
     
-    use MediBook\Controllers\AuthController;
-    
-    $authController = new AuthController();
+    // Procesar login si se envió el formulario
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $email = $_POST['email'] ?? '';
+        $password = $_POST['password'] ?? '';
+        
+        // Intentar conectar a la base de datos
+        try {
+            $pdo = new PDO("mysql:host=localhost;dbname=medibook;charset=utf8mb4", "root", "", [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+            
+            // Buscar usuario
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND status = 'active'");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+            
+            if ($user && password_verify($password, $user['password'])) {
+                // Login exitoso
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['email'] = $user['email'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
+                
+                // Redirigir según el rol
+                switch ($user['role']) {
+                    case 'admin':
+                        header('Location: ../admin/dashboard.php');
+                        exit;
+                    case 'doctor':
+                        header('Location: ../doctor/dashboard.php');
+                        exit;
+                    case 'patient':
+                        header('Location: ../patient/dashboard.php');
+                        exit;
+                    default:
+                        $error = "Rol de usuario no válido";
+                }
+            } else {
+                $error = "Credenciales incorrectas";
+            }
+        } catch (Exception $e) {
+            $error = "Error de conexión: " . $e->getMessage();
+        }
+    }
     
     // Si ya está autenticado, redirigir
     if (isset($_SESSION['user_id'])) {
         switch ($_SESSION['role']) {
-            case ROLE_ADMIN:
-                header('Location: /MediBook/src/Views/admin/dashboard.php');
+            case 'admin':
+                header('Location: ../admin/dashboard.php');
                 exit;
-            case ROLE_DOCTOR:
-                header('Location: /MediBook/src/Views/doctor/dashboard.php');
+            case 'doctor':
+                header('Location: ../doctor/dashboard.php');
                 exit;
-            case ROLE_PATIENT:
-                header('Location: /MediBook/src/Views/patient/dashboard.php');
+            case 'patient':
+                header('Location: ../patient/dashboard.php');
                 exit;
         }
-    }
-    
-    // Procesar login si es POST
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $authController->login();
     }
     ?>
     

@@ -1,17 +1,18 @@
 <?php
 session_start();
-require_once __DIR__ . '/../../../config/constants.php';
-require_once __DIR__ . '/../../Middleware/AuthMiddleware.php';
 
-use MediBook\Middleware\AuthMiddleware;
-
-// Verificar autenticación y rol de administrador
-$auth = new AuthMiddleware();
-if (!$auth->requireAdmin()) {
-    exit; // El middleware ya maneja la redirección
+// Verificar que el usuario esté autenticado y sea admin
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+    header('Location: ../../../src/Views/auth/login.php');
+    exit;
 }
 
-$user = AuthMiddleware::getCurrentUser();
+$user = [
+    'id' => $_SESSION['user_id'],
+    'email' => $_SESSION['email'],
+    'role' => $_SESSION['role'],
+    'name' => $_SESSION['name'] ?? $_SESSION['email']
+];
 ?>
 <!DOCTYPE html>
 <html lang="es">
