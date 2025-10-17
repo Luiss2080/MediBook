@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro - MediBook</title>
+    <link rel="icon" type="image/png" href="../../../public/assets/img/LogoMediBook.png">
     <link rel="stylesheet" href="/MediBook/public/assets/css/app.css">
     <style>
         .register-container {
