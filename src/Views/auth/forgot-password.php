@@ -138,24 +138,22 @@
 <body>
     <?php
     session_start();
-    
+
+    require_once __DIR__ . '/../../../config/Connection.php';
+
     $message = '';
     $messageType = '';
-    
+
     // Procesar formulario de recuperación de contraseña
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = $_POST['email'] ?? '';
-        
+
         if (empty($email)) {
             $message = 'Por favor ingresa tu correo electrónico';
             $messageType = 'error';
         } else {
             try {
-                // Conectar a la base de datos
-                $pdo = new PDO("mysql:host=localhost;dbname=medibook;charset=utf8mb4", "root", "", [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                ]);
+                $pdo = \MediBook\Database\Connection::getInstance()->getConnection();
                 
                 // Verificar si el usuario existe
                 $stmt = $pdo->prepare("SELECT id, email, first_name FROM users WHERE email = ? AND status = 'active'");

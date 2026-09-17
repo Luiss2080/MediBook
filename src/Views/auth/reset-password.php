@@ -164,20 +164,19 @@
 <body>
     <?php
     session_start();
-    
+
+    require_once __DIR__ . '/../../../config/Connection.php';
+
     $token = $_GET['token'] ?? '';
     $message = '';
     $messageType = '';
     $validToken = false;
     $user = null;
-    
+
     // Verificar token
     if ($token) {
         try {
-            $pdo = new PDO("mysql:host=localhost;dbname=medibook;charset=utf8mb4", "root", "", [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]);
+            $pdo = \MediBook\Database\Connection::getInstance()->getConnection();
             
             // Verificar si el token existe y no ha expirado
             $stmt = $pdo->prepare("

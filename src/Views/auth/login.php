@@ -114,31 +114,29 @@
 <body>
     <?php
     session_start();
-    
+
+    require_once __DIR__ . '/../../../config/Connection.php';
+
     // Procesar login si se envió el formulario
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = $_POST['email'] ?? '';
         $password = $_POST['password'] ?? '';
-        
-        // Intentar conectar a la base de datos
+
         try {
-            $pdo = new PDO("mysql:host=localhost;dbname=medibook;charset=utf8mb4", "root", "", [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]);
-            
+            $pdo = \MediBook\Database\Connection::getInstance()->getConnection();
+
             // Buscar usuario
             $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND status = 'active'");
             $stmt->execute([$email]);
             $user = $stmt->fetch();
-            
+
             if ($user && password_verify($password, $user['password'])) {
                 // Login exitoso
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
-                
+
                 // Redirigir según el rol
                 switch ($user['role']) {
                     case 'admin':
@@ -157,7 +155,9 @@
                 $error = "Credenciales incorrectas";
             }
         } catch (Exception $e) {
-            $error = "Error de conexión: " . $e->getMessage();
+            // No exponer detalles internos (mensaje de PDO, host, etc.) al usuario.
+            error_log('Login error: ' . $e->getMessage());
+            $error = "No se pudo procesar el inicio de sesión. Intenta nuevamente más tarde.";
         }
     }
     
@@ -258,15 +258,6 @@
                         <i class="fas fa-home me-1"></i>
                         Volver al Inicio
                     </a>
-                </div>
-                
-                <div class="alert alert-info mt-3">
-                    <strong><i class="fas fa-info-circle me-1"></i>Credenciales de Prueba:</strong><br>
-                    <small>
-                        <strong>Admin:</strong> admin@medibook.com / password123<br>
-                        <strong>Doctor:</strong> doctor@medibook.com / password123<br>
-                        <strong>Paciente:</strong> patient@medibook.com / password123
-                    </small>
                 </div>
             </div>
         </div>
