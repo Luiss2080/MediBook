@@ -36,6 +36,9 @@ Thumbs.db
 # Composer
 composer.phar
 
+# PHP-CS-Fixer
+.php-cs-fixer.cache
+
 # NPM
 package-lock.json
 npm-debug.log
