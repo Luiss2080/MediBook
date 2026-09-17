@@ -166,36 +166,28 @@
     session_start();
 
     require_once __DIR__ . '/../../../config/Connection.php';
+    require_once __DIR__ . '/../../Models/User.php';
 
-    $token = $_GET['token'] ?? '';
+    use MediBook\Models\User;
+
+    $token = $_GET['token'] ?? $_POST['token'] ?? '';
     $message = '';
     $messageType = '';
     $validToken = false;
-    $user = null;
+    $userModel = new User();
 
-    // Verificar token
+    // Verificar token contra el esquema real (password_reset_tokens.email,
+    // no password_reset_tokens.user_id, que no existe en la migración).
     if ($token) {
         try {
-            $pdo = \MediBook\Database\Connection::getInstance()->getConnection();
-            
-            // Verificar si el token existe y no ha expirado
-            $stmt = $pdo->prepare("
-                SELECT prt.*, u.email, u.first_name 
-                FROM password_reset_tokens prt 
-                JOIN users u ON prt.user_id = u.id 
-                WHERE prt.token = ? AND prt.expires_at > NOW()
-            ");
-            $stmt->execute([$token]);
-            $resetData = $stmt->fetch();
-            
-            if ($resetData) {
-                $validToken = true;
-                $user = $resetData;
-            } else {
+            $validToken = $userModel->validatePasswordResetToken($token);
+
+            if (!$validToken) {
                 $message = 'El enlace de recuperación no es válido o ha expirado';
                 $messageType = 'danger';
             }
         } catch (Exception $e) {
+            error_log('Reset-password validation error: ' . $e->getMessage());
             $message = 'Error del sistema. Por favor intenta más tarde.';
             $messageType = 'danger';
         }
@@ -203,36 +195,37 @@
         $message = 'Enlace de recuperación no válido';
         $messageType = 'danger';
     }
-    
+
     // Procesar formulario de cambio de contraseña
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validToken) {
         $password = $_POST['password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
-        
+
         if (empty($password) || empty($confirmPassword)) {
             $message = 'Por favor completa todos los campos';
             $messageType = 'danger';
-        } elseif (strlen($password) < 8) {
-            $message = 'La contraseña debe tener al menos 8 caracteres';
+        } elseif (strlen($password) < 8 ||
+                  !preg_match('/[a-z]/', $password) ||
+                  !preg_match('/[A-Z]/', $password) ||
+                  !preg_match('/\d/', $password)) {
+            $message = 'La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula y número';
             $messageType = 'danger';
         } elseif ($password !== $confirmPassword) {
             $message = 'Las contraseñas no coinciden';
             $messageType = 'danger';
         } else {
             try {
-                // Actualizar contraseña
-                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?");
-                $stmt->execute([$hashedPassword, $user['user_id']]);
-                
-                // Eliminar token usado
-                $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE token = ?");
-                $stmt->execute([$token]);
-                
-                $message = 'Tu contraseña ha sido actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña.';
-                $messageType = 'success';
-                $validToken = false; // Para ocultar el formulario
+                if ($userModel->resetPasswordWithToken($token, $password)) {
+                    $message = 'Tu contraseña ha sido actualizada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña.';
+                    $messageType = 'success';
+                    $validToken = false; // Para ocultar el formulario
+                } else {
+                    $message = 'El enlace de recuperación no es válido o ha expirado';
+                    $messageType = 'danger';
+                    $validToken = false;
+                }
             } catch (Exception $e) {
+                error_log('Reset-password update error: ' . $e->getMessage());
                 $message = 'Error al actualizar la contraseña. Por favor intenta más tarde.';
                 $messageType = 'danger';
             }
@@ -256,12 +249,7 @@
                     </div>
                 <?php endif; ?>
                 
-                <?php if ($validToken && $user): ?>
-                    <div class="alert alert-info">
-                        <i class="fas fa-user me-2"></i>
-                        Restableciendo contraseña para: <strong><?= htmlspecialchars($user['email']) ?></strong>
-                    </div>
-                    
+                <?php if ($validToken): ?>
                     <div class="password-requirements">
                         <h6><i class="fas fa-shield-alt me-2"></i>Requisitos de Contraseña</h6>
                         <div class="requirement">
