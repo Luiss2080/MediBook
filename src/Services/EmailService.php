@@ -12,14 +12,16 @@ class EmailService
     
     public function __construct()
     {
-        // Configuración SMTP para Gmail
-        // En producción, estos valores deberían estar en variables de entorno
-        $this->smtpHost = 'smtp.gmail.com';
-        $this->smtpPort = 587;
-        $this->smtpUsername = 'tu_email@gmail.com'; // Cambiar por tu email
-        $this->smtpPassword = 'tu_app_password';    // Usar App Password de Gmail
-        $this->fromEmail = 'noreply@medibook.com';
-        $this->fromName = 'MediBook Sistema';
+        // Configuración SMTP cargada desde variables de entorno (config/mail.php),
+        // nunca hardcodeada en el código fuente.
+        $config = require __DIR__ . '/../../config/mail.php';
+
+        $this->smtpHost = $config['host'];
+        $this->smtpPort = $config['port'];
+        $this->smtpUsername = $config['username'];
+        $this->smtpPassword = $config['password'];
+        $this->fromEmail = $config['from']['address'];
+        $this->fromName = $config['from']['name'];
     }
     
     public function sendPasswordResetEmail($email, $token)
