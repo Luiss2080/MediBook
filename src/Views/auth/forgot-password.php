@@ -143,15 +143,19 @@
     require_once __DIR__ . '/../../../config/Connection.php';
     require_once __DIR__ . '/../../Models/User.php';
     require_once __DIR__ . '/../../Services/EmailService.php';
+    require_once __DIR__ . '/../../Helpers/SecurityHelper.php';
 
     use MediBook\Models\User;
     use MediBook\Services\EmailService;
+    use MediBook\Helpers\SecurityHelper;
 
     $message = '';
     $messageType = '';
 
     // Procesar formulario de recuperación de contraseña
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        SecurityHelper::requireValidCsrfToken('forgot-password');
+
         $email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
 
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -210,6 +214,7 @@
                 </div>
                 
                 <form method="POST" action="">
+                    <?= SecurityHelper::csrfField('forgot-password') ?>
                     <div class="form-group">
                         <label for="email" class="form-label">
                             <i class="fas fa-envelope me-2"></i>

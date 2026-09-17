@@ -167,8 +167,10 @@
 
     require_once __DIR__ . '/../../../config/Connection.php';
     require_once __DIR__ . '/../../Models/User.php';
+    require_once __DIR__ . '/../../Helpers/SecurityHelper.php';
 
     use MediBook\Models\User;
+    use MediBook\Helpers\SecurityHelper;
 
     $token = $_GET['token'] ?? $_POST['token'] ?? '';
     $message = '';
@@ -198,16 +200,15 @@
 
     // Procesar formulario de cambio de contraseña
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && $validToken) {
+        SecurityHelper::requireValidCsrfToken('reset-password');
+
         $password = $_POST['password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
 
         if (empty($password) || empty($confirmPassword)) {
             $message = 'Por favor completa todos los campos';
             $messageType = 'danger';
-        } elseif (strlen($password) < 8 ||
-                  !preg_match('/[a-z]/', $password) ||
-                  !preg_match('/[A-Z]/', $password) ||
-                  !preg_match('/\d/', $password)) {
+        } elseif (!SecurityHelper::isStrongPassword($password)) {
             $message = 'La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula y número';
             $messageType = 'danger';
         } elseif ($password !== $confirmPassword) {
@@ -263,6 +264,7 @@
                     </div>
                     
                     <form method="POST" action="" id="resetForm">
+                        <?= SecurityHelper::csrfField('reset-password') ?>
                         <div class="form-group">
                             <label for="password" class="form-label">
                                 <i class="fas fa-lock me-2"></i>
