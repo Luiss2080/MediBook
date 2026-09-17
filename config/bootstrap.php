@@ -35,30 +35,44 @@ if (!function_exists('medibook_bootstrap_env')) {
 
         if (class_exists(\Dotenv\Dotenv::class)) {
             \Dotenv\Dotenv::createImmutable($root)->safeLoad();
-            return;
-        }
+        } else {
+            $envFile = $root . '/.env';
 
-        $envFile = $root . '/.env';
+            if (file_exists($envFile)) {
+                foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+                    $line = trim($line);
 
-        if (!file_exists($envFile)) {
-            return;
-        }
+                    if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
+                        continue;
+                    }
 
-        foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $line = trim($line);
+                    [$key, $value] = explode('=', $line, 2);
+                    $key = trim($key);
+                    $value = trim($value, " \t\n\r\0\x0B\"'");
 
-            if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
-                continue;
+                    if ($key !== '' && getenv($key) === false) {
+                        putenv("{$key}={$value}");
+                        $_ENV[$key] = $value;
+                        $_SERVER[$key] = $value;
+                    }
+                }
             }
+        }
 
-            [$key, $value] = explode('=', $line, 2);
-            $key = trim($key);
-            $value = trim($value, " \t\n\r\0\x0B\"'");
-
-            if ($key !== '' && getenv($key) === false) {
-                putenv("{$key}={$value}");
+        // Red de seguridad: en muchas instalaciones PHP (Laragon/XAMPP
+        // incluidos) `variables_order` en php.ini no incluye "E", así que
+        // $_ENV nunca se rellena automáticamente desde variables de entorno
+        // reales del sistema operativo (export en shell, Docker ENV,
+        // systemd Environment=, Apache SetEnv, etc.). Dotenv en modo
+        // "immutable" además se niega a escribir en $_ENV una clave que ya
+        // exista según getenv(), así que esas dos cosas combinadas dejaban
+        // $_ENV completamente vacío para cualquier variable definida solo a
+        // nivel de sistema operativo, y config/*.php únicamente lee
+        // $_ENV[...] (nunca getenv()). Este bucle final asegura que toda
+        // variable visible vía getenv() también quede en $_ENV.
+        foreach (getenv() as $key => $value) {
+            if (!array_key_exists($key, $_ENV)) {
                 $_ENV[$key] = $value;
-                $_SERVER[$key] = $value;
             }
         }
     }
