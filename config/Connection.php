@@ -4,11 +4,13 @@ namespace MediBook\Database;
 use PDO;
 use PDOException;
 
+require_once __DIR__ . '/bootstrap.php';
+
 class Connection
 {
     private static $instance = null;
     private $connection;
-    
+
     private function __construct()
     {
         $config = require __DIR__ . '/database.php';
