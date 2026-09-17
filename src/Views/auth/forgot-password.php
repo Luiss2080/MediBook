@@ -139,49 +139,46 @@
     <?php
     session_start();
 
+    require_once __DIR__ . '/../../../config/constants.php';
     require_once __DIR__ . '/../../../config/Connection.php';
+    require_once __DIR__ . '/../../Models/User.php';
+    require_once __DIR__ . '/../../Services/EmailService.php';
+
+    use MediBook\Models\User;
+    use MediBook\Services\EmailService;
 
     $message = '';
     $messageType = '';
 
     // Procesar formulario de recuperación de contraseña
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $email = $_POST['email'] ?? '';
+        $email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
 
-        if (empty($email)) {
-            $message = 'Por favor ingresa tu correo electrónico';
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $message = 'Por favor ingresa una dirección de correo electrónico válida';
             $messageType = 'error';
         } else {
             try {
-                $pdo = \MediBook\Database\Connection::getInstance()->getConnection();
-                
-                // Verificar si el usuario existe
-                $stmt = $pdo->prepare("SELECT id, email, first_name FROM users WHERE email = ? AND status = 'active'");
-                $stmt->execute([$email]);
-                $user = $stmt->fetch();
-                
+                $userModel = new User();
+                $user = $userModel->findByEmail($email);
+
                 if ($user) {
-                    // Generar token de recuperación
-                    $token = bin2hex(random_bytes(32));
-                    $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour'));
-                    
-                    // Guardar token en la base de datos
-                    $stmt = $pdo->prepare("INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token), expires_at = VALUES(expires_at)");
-                    $stmt->execute([$user['id'], $token, $expires_at]);
-                    
-                    // Simular envío de email (en producción aquí iría el envío real)
-                    $resetLink = "http://localhost/MediBook/src/Views/auth/reset-password.php?token=" . $token;
-                    
-                    $message = 'Se ha enviado un enlace de recuperación a tu correo electrónico. El enlace expirará en 1 hora.';
-                    $messageType = 'success';
-                    
-                    // En desarrollo, mostrar el enlace directamente
-                    $message .= '<br><br><strong>Enlace de recuperación (solo para desarrollo):</strong><br><a href="' . $resetLink . '" target="_blank">' . $resetLink . '</a>';
-                } else {
-                    $message = 'No se encontró una cuenta asociada a ese correo electrónico';
-                    $messageType = 'error';
+                    $result = $userModel->createPasswordResetToken($email);
+
+                    if ($result) {
+                        $emailService = new EmailService();
+                        $emailService->sendPasswordResetEmail($email, $result['token']);
+                    }
                 }
+
+                // Respuesta idéntica exista o no la cuenta: evita que un atacante
+                // pueda usar este formulario para enumerar correos registrados.
+                // El enlace de recuperación NUNCA se muestra en la respuesta HTTP;
+                // solo se envía por correo al titular de la cuenta.
+                $message = 'Si el correo está registrado, recibirás un enlace de recuperación en unos minutos. El enlace expirará en 1 hora.';
+                $messageType = 'success';
             } catch (Exception $e) {
+                error_log('Forgot-password error: ' . $e->getMessage());
                 $message = 'Error del sistema. Por favor intenta más tarde.';
                 $messageType = 'error';
             }
@@ -201,7 +198,7 @@
                 <?php if ($message): ?>
                     <div class="alert alert-<?= $messageType === 'success' ? 'success' : 'danger' ?>">
                         <i class="fas fa-<?= $messageType === 'success' ? 'check-circle' : 'exclamation-circle' ?> me-2"></i>
-                        <?= $message ?>
+                        <?= htmlspecialchars($message) ?>
                     </div>
                 <?php endif; ?>
                 
