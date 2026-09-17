@@ -113,12 +113,16 @@
 </head>
 <body>
     <?php
-    session_start();
-
     require_once __DIR__ . '/../../../config/Connection.php';
     require_once __DIR__ . '/../../Helpers/SecurityHelper.php';
+    require_once __DIR__ . '/../../Helpers/SessionHelper.php';
+    require_once __DIR__ . '/../../Models/User.php';
 
     use MediBook\Helpers\SecurityHelper;
+    use MediBook\Helpers\SessionHelper;
+    use MediBook\Models\User;
+
+    SessionHelper::start();
 
     // Procesar login si se envió el formulario
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -126,38 +130,50 @@
 
         $email = $_POST['email'] ?? '';
         $password = $_POST['password'] ?? '';
+        $userModel = new User();
 
         try {
-            $pdo = \MediBook\Database\Connection::getInstance()->getConnection();
-
-            // Buscar usuario
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND status = 'active'");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch();
-
-            if ($user && password_verify($password, $user['password'])) {
-                // Login exitoso
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
-
-                // Redirigir según el rol
-                switch ($user['role']) {
-                    case 'admin':
-                        header('Location: ../admin/dashboard.php');
-                        exit;
-                    case 'doctor':
-                        header('Location: ../doctor/dashboard.php');
-                        exit;
-                    case 'patient':
-                        header('Location: ../patient/dashboard.php');
-                        exit;
-                    default:
-                        $error = "Rol de usuario no válido";
-                }
+            if ($userModel->checkLoginAttempts($email)) {
+                $error = "Demasiados intentos fallidos. Intenta nuevamente en 15 minutos.";
             } else {
-                $error = "Credenciales incorrectas";
+                $pdo = \MediBook\Database\Connection::getInstance()->getConnection();
+
+                // Buscar usuario
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND status = 'active'");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch();
+
+                if ($user && password_verify($password, $user['password'])) {
+                    $userModel->logLoginAttempt($email, true);
+
+                    // Regenerar el ID de sesión tras un login exitoso para
+                    // evitar ataques de fijación de sesión (session fixation).
+                    SessionHelper::regenerate();
+
+                    // Login exitoso
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['email'] = $user['email'];
+                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
+
+                    // Redirigir según el rol
+                    switch ($user['role']) {
+                        case 'admin':
+                            header('Location: ../admin/dashboard.php');
+                            exit;
+                        case 'doctor':
+                            header('Location: ../doctor/dashboard.php');
+                            exit;
+                        case 'patient':
+                            header('Location: ../patient/dashboard.php');
+                            exit;
+                        default:
+                            $error = "Rol de usuario no válido";
+                    }
+                } else {
+                    $userModel->logLoginAttempt($email, false);
+                    $error = "Credenciales incorrectas";
+                }
             }
         } catch (Exception $e) {
             // No exponer detalles internos (mensaje de PDO, host, etc.) al usuario.

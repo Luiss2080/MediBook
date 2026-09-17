@@ -163,14 +163,16 @@
 </head>
 <body>
     <?php
-    session_start();
-
     require_once __DIR__ . '/../../../config/Connection.php';
     require_once __DIR__ . '/../../Models/User.php';
     require_once __DIR__ . '/../../Helpers/SecurityHelper.php';
+    require_once __DIR__ . '/../../Helpers/SessionHelper.php';
 
     use MediBook\Models\User;
     use MediBook\Helpers\SecurityHelper;
+    use MediBook\Helpers\SessionHelper;
+
+    SessionHelper::start();
 
     $token = $_GET['token'] ?? $_POST['token'] ?? '';
     $message = '';

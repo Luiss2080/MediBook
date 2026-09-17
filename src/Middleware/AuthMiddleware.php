@@ -1,26 +1,26 @@
 <?php
-require_once __DIR__ . '/../../config/constants.php';
 
 namespace MediBook\Middleware;
 
 use MediBook\Models\User;
+use MediBook\Helpers\SessionHelper;
+
+require_once __DIR__ . '/../../config/constants.php';
+require_once __DIR__ . '/../Helpers/SessionHelper.php';
 
 class AuthMiddleware
 {
     private $userModel;
-    
+
     public function __construct()
     {
         $this->userModel = new User();
     }
-    
+
     public function handle($requiredRole = null)
     {
-        // Iniciar sesión si no está iniciada
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
+        SessionHelper::start();
+
         // Verificar si hay una sesión activa
         if (!isset($_SESSION['user_id']) || !isset($_SESSION['session_token'])) {
             $this->redirectToLogin();
