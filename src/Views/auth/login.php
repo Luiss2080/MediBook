@@ -116,9 +116,14 @@
     session_start();
 
     require_once __DIR__ . '/../../../config/Connection.php';
+    require_once __DIR__ . '/../../Helpers/SecurityHelper.php';
+
+    use MediBook\Helpers\SecurityHelper;
 
     // Procesar login si se envió el formulario
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        SecurityHelper::requireValidCsrfToken('login');
+
         $email = $_POST['email'] ?? '';
         $password = $_POST['password'] ?? '';
 
@@ -201,6 +206,7 @@
                 <?php endif; ?>
                 
                 <form method="POST" action="">
+                    <?= SecurityHelper::csrfField('login') ?>
                     <div class="form-group">
                         <label for="email" class="form-label">
                             <i class="fas fa-envelope me-2"></i>
