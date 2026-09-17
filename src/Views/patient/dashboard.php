@@ -1,5 +1,9 @@
 <?php
-session_start();
+require_once __DIR__ . '/../../Helpers/SessionHelper.php';
+
+use MediBook\Helpers\SessionHelper;
+
+SessionHelper::start();
 
 // Verificar que el usuario esté autenticado y sea paciente
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') {
