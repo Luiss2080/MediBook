@@ -65,12 +65,12 @@ class User
                   VALUES (:username, :email, :password, :first_name, :last_name, :role)";
         
         $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':username', $data['username']);
-        $stmt->bindParam(':email', $data['email']);
-        $stmt->bindParam(':password', password_hash($data['password'], PASSWORD_DEFAULT));
-        $stmt->bindParam(':first_name', $data['first_name']);
-        $stmt->bindParam(':last_name', $data['last_name']);
-        $stmt->bindParam(':role', $data['role']);
+        $stmt->bindValue(':username', $data['username']);
+        $stmt->bindValue(':email', $data['email']);
+        $stmt->bindValue(':password', password_hash($data['password'], PASSWORD_DEFAULT));
+        $stmt->bindValue(':first_name', $data['first_name']);
+        $stmt->bindValue(':last_name', $data['last_name']);
+        $stmt->bindValue(':role', $data['role']);
         
         return $stmt->execute();
     }
@@ -97,11 +97,11 @@ class User
                   VALUES (:email, :ip_address, :user_agent, :success)";
         
         $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':email', $email);
-        $stmt->bindParam(':ip_address', $_SERVER['REMOTE_ADDR'] ?? '');
-        $stmt->bindParam(':user_agent', $_SERVER['HTTP_USER_AGENT'] ?? '');
-        $stmt->bindParam(':success', $success, PDO::PARAM_BOOL);
-        
+        $stmt->bindValue(':email', $email);
+        $stmt->bindValue(':ip_address', $_SERVER['REMOTE_ADDR'] ?? '');
+        $stmt->bindValue(':user_agent', $_SERVER['HTTP_USER_AGENT'] ?? '');
+        $stmt->bindValue(':success', $success, PDO::PARAM_BOOL);
+
         return $stmt->execute();
     }
     
@@ -113,10 +113,10 @@ class User
                   VALUES (:user_id, :session_token, :ip_address, :user_agent)";
         
         $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':user_id', $userId);
-        $stmt->bindParam(':session_token', $sessionToken);
-        $stmt->bindParam(':ip_address', $_SERVER['REMOTE_ADDR'] ?? '');
-        $stmt->bindParam(':user_agent', $_SERVER['HTTP_USER_AGENT'] ?? '');
+        $stmt->bindValue(':user_id', $userId);
+        $stmt->bindValue(':session_token', $sessionToken);
+        $stmt->bindValue(':ip_address', $_SERVER['REMOTE_ADDR'] ?? '');
+        $stmt->bindValue(':user_agent', $_SERVER['HTTP_USER_AGENT'] ?? '');
         
         if ($stmt->execute()) {
             return $sessionToken;
@@ -237,7 +237,7 @@ class User
                            WHERE email = :email AND status = 'active'";
             
             $updateStmt = $this->db->prepare($updateQuery);
-            $updateStmt->bindParam(':password', password_hash($newPassword, PASSWORD_DEFAULT));
+            $updateStmt->bindValue(':password', password_hash($newPassword, PASSWORD_DEFAULT));
             $updateStmt->bindParam(':email', $tokenData['email']);
             $updateStmt->execute();
             
